@@ -414,8 +414,18 @@ def generate_profile(
 
     if effects is None:
         effects = {"particles": 60, "sparkles": 10, "stripes": False, "grid": False, "glow": 1}
-    n_particles = effects.get("particles", 60)
-    n_sparkles = effects.get("sparkles", 10)
+
+    # ── SIMPLIFY: reduce all effects for cleaner look ──
+    effects = dict(effects)
+    effects["particles"] = max(0, int(effects.get("particles", 60) * 0.3))
+    effects["sparkles"] = max(0, int(effects.get("sparkles", 10) * 0.25))
+    effects["stripes"] = False
+    effects["grid"] = False
+    effects["glow"] = min(1, effects.get("glow", 1))
+    effects["intensity"] = min(1, effects.get("intensity", 1))
+
+    n_particles = effects.get("particles", 15)
+    n_sparkles = effects.get("sparkles", 3)
     do_stripes = effects.get("stripes", False)
     do_grid = effects.get("grid", False)
     glow_level = effects.get("glow", 1)
@@ -435,30 +445,29 @@ def generate_profile(
 
     # ── TYPE-BASED EFFECTS ──
     if effect_type == "aurora":
-        img = _effect_aurora(img, [brd, acc, _bright(acc, 1.3), brt], effect_intensity)
+        img = _effect_aurora(img, [brd, acc], max(1, effect_intensity))
     elif effect_type == "embers":
-        img = _effect_embers(img, brt, count=60 + effect_intensity * 40, seed=seed)
-        img = _effect_embers(img, (255, 100, 30), count=30 + effect_intensity * 20, seed=seed + 10)
+        img = _effect_embers(img, brt, count=max(5, 15 + effect_intensity * 8), seed=seed)
+        img = _effect_embers(img, (255, 100, 30), count=max(3, 8 + effect_intensity * 4), seed=seed + 10)
     elif effect_type == "rain":
-        img = _effect_rain(img, brt, effect_intensity, seed=seed)
+        img = _effect_rain(img, brt, max(1, effect_intensity), seed=seed)
     elif effect_type == "neon_pulse":
-        img = _effect_neon_pulse(img, brt, effect_intensity, seed=seed)
+        img = _effect_neon_pulse(img, brt, max(1, effect_intensity), seed=seed)
     elif effect_type == "shadow_waves":
-        img = _effect_shadow_waves(img, _dim(brd, 0.5), effect_intensity)
+        img = _effect_shadow_waves(img, _dim(brd, 0.5), max(1, effect_intensity))
     elif effect_type == "crystal":
-        img = _effect_crystal_shimmer(img, brt, count=40 + effect_intensity * 30, seed=seed)
-        img = _effect_crystal_shimmer(img, acc, count=20 + effect_intensity * 15, seed=seed + 5)
+        img = _effect_crystal_shimmer(img, brt, count=max(5, 10 + effect_intensity * 6), seed=seed)
     elif effect_type == "nebula":
-        img = _effect_nebula(img, [brd, acc, _bright(brd, 1.2)], effect_intensity, seed=seed)
+        img = _effect_nebula(img, [brd, acc], max(1, effect_intensity), seed=seed)
     elif effect_type == "vortex":
-        img = _effect_vortex_particles(img, brt, count=80 + effect_intensity * 40, seed=seed)
+        img = _effect_vortex_particles(img, brt, count=max(8, 20 + effect_intensity * 8), seed=seed)
     elif effect_type == "petals":
-        img = _effect_falling_petals(img, [brd, acc, _bright(brd, 1.3)], count=30 + effect_intensity * 20, seed=seed)
+        img = _effect_falling_petals(img, [brd, acc], count=max(5, 8 + effect_intensity * 5), seed=seed)
     elif effect_type == "sacred_geometry":
-        img = _effect_sacred_geometry(img, brt, effect_intensity)
+        img = _effect_sacred_geometry(img, brt, max(1, effect_intensity))
     else:
         if glow_level >= 1:
-            img = _soft_glow(img, 400, 260, int(250 * glow_level * 0.3), brd, glow_level * 0.3)
+            img = _soft_glow(img, 400, 260, int(120 * glow_level * 0.3), brd, glow_level * 0.3)
 
     # ── BASE EFFECTS (always applied, layered on top) ──
     if do_grid:
@@ -469,25 +478,23 @@ def generate_profile(
         img = _diagonal_stripes(img, acc, spacing=130, alpha=5)
 
     if glow_level >= 1:
-        gi = glow_level * 0.5
-        img = _soft_glow(img, 700, 80, int(120 * gi), brd, gi)
-        img = _soft_glow(img, 750, 440, int(80 * gi), brd, gi * 0.7)
-        img = _soft_glow(img, 60, 470, int(60 * gi), acc, gi * 0.6)
+        gi = glow_level * 0.3
+        img = _soft_glow(img, 700, 80, int(60 * gi), brd, gi)
+        img = _soft_glow(img, 750, 440, int(40 * gi), brd, gi * 0.7)
 
     if n_particles > 0:
         img = _particles_v2(img, brt2, count=n_particles, seed=seed)
         img = _sparkles_v2(img, brt, count=n_sparkles, seed=seed + 1)
-        img = _particles_v2(img, acc, count=n_particles // 3, seed=seed + 2)
 
-    for cx, cy, r, a in [(720, -40, 180, 18), (790, 520, 120, 14), (90, 540, 90, 12), (760, 260, 60, 22), (70, 80, 45, 16)]:
+    for cx, cy, r, a in [(720, -40, 100, 8), (750, 440, 60, 6)]:
         img = _soft_glow(img, cx, cy, r, brd, a / 20.0)
 
     # ── THEMED ART ──
     img = apply_theme_art(img, theme, brd, acc, seed=seed)
 
     # ── TOP/BOTTOM GLOW LINES ──
-    for i in range(6):
-        a = int(255 - i * 40) * glow_level // 2
+    for i in range(3):
+        a = int(180 - i * 50) * glow_level // 2
         a = max(0, min(255, a))
         if a < 1:
             break
@@ -496,8 +503,8 @@ def generate_profile(
         ov = ov.filter(ImageFilter.GaussianBlur(1))
         img = Image.alpha_composite(img, ov)
 
-    for i in range(5):
-        a = int(180 - i * 35) * glow_level // 2
+    for i in range(3):
+        a = int(140 - i * 35) * glow_level // 2
         a = max(0, min(255, a))
         if a < 1:
             break
@@ -540,8 +547,8 @@ def generate_profile(
 
     ov = Image.new("RGBA", (PANEL_W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(ov)
-    for off in range(-H, PANEL_W + H, 45):
-        d.line((off, 0, off + H, H), fill=_alpha(brd, 5), width=1)
+    for off in range(-H, PANEL_W + H, 60):
+        d.line((off, 0, off + H, H), fill=_alpha(brd, 3), width=1)
     panel_ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     panel_ov.paste(ov, (0, 0))
     img = Image.alpha_composite(img, panel_ov)
@@ -554,13 +561,13 @@ def generate_profile(
     av_cx = av_x + av_sz // 2
     av_cy = av_y + av_sz // 2
 
-    img = _glow_ring(img, av_cx, av_cy, av_sz // 2 + 8, brt, rings=15, spread=4, blur=4)
+    img = _glow_ring(img, av_cx, av_cy, av_sz // 2 + 8, brt, rings=6, spread=3, blur=3)
 
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(ov)
-    for i in range(5):
+    for i in range(3):
         r = av_sz // 2 + 4 + i
-        a = max(0, int(200 - i * 40))
+        a = max(0, int(160 - i * 40))
         d.ellipse((av_cx - r, av_cy - r, av_cx + r, av_cy + r), outline=_alpha(brt, a), width=2)
     ov = ov.filter(ImageFilter.GaussianBlur(2))
     img = Image.alpha_composite(img, ov)
