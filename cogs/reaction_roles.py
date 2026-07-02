@@ -103,19 +103,6 @@ class ReactionRole(commands.Cog):
                     except discord.HTTPException:
                         pass
 
-    @app_commands.command(name="remove_reaction_role", description="Remova um reaction role.")
-    @app_commands.describe(message_id="ID da mensagem", emoji="Emoji")
-    @app_commands.checks.has_permissions(manage_roles=True)
-    async def remove_reaction_role(self, interaction: discord.Interaction, message_id: str, emoji: str) -> None:
-        await db.remove_reaction_role(int(message_id), emoji)
-        embed = (
-            make_embed("success")
-            .title("\U0001f500 Reaction Role Removido!")
-            .desc(f"Emoji **{emoji}** removido da mensagem `{message_id}`.")
-            .timestamp()
-            .build()
-        )
-        await interaction.response.send_message(embed=embed)
 
 
 async def setup(bot: KlausBot) -> None:

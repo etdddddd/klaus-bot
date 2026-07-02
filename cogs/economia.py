@@ -3072,10 +3072,251 @@ class Economia(commands.Cog):
         else:
             raise error
 
+    # =========================
+    # /VENDER
+    # =========================
 
-# =========================
-# VIEW: Batalha PvP
-# =========================
+    @app_commands.command(name="vender", description="Venda itens do seu inventario por koins!")
+    @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
+    async def vender(self, interaction: discord.Interaction) -> None:
+        inv = await db.get_inventory(interaction.user.id)
+        items = inv.get("items", {})
+        shop_items = settings.shop_items
+        has_items = any(k in shop_items and v > 0 for k, v in items.items())
+        if not has_items:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Inventario Vazio", "Voce nao tem itens da loja para vender!"), ephemeral=True,
+            )
+        view = VenderView(interaction.user, items)
+        embed = make_embed("purple").title("Vender Itens").desc("Selecione um item do inventario para vender por 50% do preco de compra.").timestamp().build()
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    # =========================
+    # /CORREIO
+    # =========================
+
+    @app_commands.command(name="correio", description="Envie uma mensagem para outro membro!")
+    @app_commands.describe(
+        membro="Membro que recebera a mensagem",
+        mensagem="Sua mensagem (max 500 caracteres)",
+        anonimo="Enviar de forma anonima?",
+    )
+    @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
+    async def correio(
+        self,
+        interaction: discord.Interaction,
+        membro: discord.Member,
+        mensagem: str,
+        anonimo: bool = False,
+    ) -> None:
+        if membro.id == interaction.user.id:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Voce nao pode mandar correio para si mesmo!"), ephemeral=True,
+            )
+        if membro.bot:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Voce nao pode mandar correio para bots!"), ephemeral=True,
+            )
+        if len(mensagem) > 500:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Mensagem muito longa! Maximo de 500 caracteres."), ephemeral=True,
+            )
+        sender_name = "Anonimo" if anonimo else interaction.user.display_name
+        sender_avatar = None if anonimo else interaction.user.display_avatar.url
+        embed = make_embed("pink").title("Correio Chegou!")
+        if sender_avatar:
+            embed.thumb(sender_avatar)
+        embed.field("De", sender_name, inline=True).field("Para", membro.mention, inline=True).field("Mensagem", mensagem).footer(text=f"Servidor: {interaction.guild.name}")
+        try:
+            await membro.send(embed=embed.build())
+            await interaction.response.send_message(
+                embed=make_embed.success("Enviado!", f"Correo enviado para {membro.mention}!"), ephemeral=True,
+            )
+        except discord.HTTPException:
+            await interaction.response.send_message(
+                embed=make_embed.error("Erro", f"Nao foi possivel enviar mensagem para {membro.mention}. DMs desativadas?"), ephemeral=True,
+            )
+
+    # =========================
+    # /RECOMPENSA
+    # =========================
+
+    @app_commands.command(name="recompensa", description="Veja e resgate todas as suas recompensas disponiveis!")
+    @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
+    async def recompensa(self, interaction: discord.Interaction) -> None:
+        user = await db.get_user(interaction.user.id)
+        now = discord.utils.utcnow()
+        sections = []
+
+        daily_last = user.get("daily_last")
+        if daily_last:
+            daily_dt = daily_last if isinstance(daily_last, datetime.datetime) else datetime.datetime.fromisoformat(str(daily_last))
+            daily_next = daily_dt + datetime.timedelta(hours=24)
+            if now >= daily_next:
+                sections.append(("Daily", "Disponivel!", "green"))
+            else:
+                remaining = daily_next - now
+                h, m = divmod(int(remaining.total_seconds()) // 60, 60)
+                sections.append(("Daily", f"Disponivel em **{h}h {m}m**", "red"))
+        else:
+            sections.append(("Daily", "Disponivel!", "green"))
+
+        weekly_last = user.get("weekly_last")
+        if weekly_last:
+            weekly_dt = weekly_last if isinstance(weekly_last, datetime.datetime) else datetime.datetime.fromisoformat(str(weekly_last))
+            weekly_next = weekly_dt + datetime.timedelta(days=7)
+            if now >= weekly_next:
+                sections.append(("Semanal", "Disponivel!", "green"))
+            else:
+                remaining = weekly_next - now
+                d = remaining.days
+                h = remaining.seconds // 3600
+                sections.append(("Semanal", f"Disponivel em **{d}d {h}h**", "red"))
+        else:
+            sections.append(("Semanal", "Disponivel!", "green"))
+
+        streak = user.get("streak", 0)
+        bonus = calculate_streak_bonus(streak)
+        streak_info = f"Sequencia: **{streak}** dias (bonus: **{bonus}x**)"
+        if streak >= 7:
+            sections.append(("Streak", f"{streak_info}\nBonus ativo!", "green"))
+        else:
+            sections.append(("Streak", streak_info, "yellow"))
+
+        embed = make_embed("purple").title("Recompensas Disponiveis").desc("Veja suas recompensas e colete com os comandos相应的.").timestamp().build()
+        for name, status, _col in sections:
+            embed.add_field(name=name, value=status, inline=True)
+        await interaction.response.send_message(embed=embed)
+
+    # =========================
+    # /DOAR
+    # =========================
+
+    @app_commands.command(name="doar", description="Doe koins para a causa comunitaria!")
+    @app_commands.describe(valor="Quantidade de koins para doar")
+    @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
+    async def doar(self, interaction: discord.Interaction, valor: int) -> None:
+        if valor <= 0:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Valor deve ser maior que 0!"), ephemeral=True,
+            )
+        balance = await db.get_balance(interaction.user.id)
+        if balance < valor:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Saldo Insuficiente", f"Voce tem **{format_koins(balance)}** koins."), ephemeral=True,
+            )
+        await db.add_koins(interaction.user.id, -valor)
+        charity = await db.get_user(0)
+        total = charity.get("charity_total", 0) + valor
+        await db.users.update_one({"discord_id": 0}, {"$set": {"charity_total": total}}, upsert=True)
+        bonus = random.randint(1, max(1, valor // 100))
+        await db.add_koins(interaction.user.id, bonus)
+        embed = make_embed("green").title("Doacao Realizada!").desc(
+            f"Voce doou **{format_koins(valor)}** koins para a causa comunitaria!\n"
+            f"Como agradecimento, ganhou **{format_koins(bonus)}** koins de volta.\n"
+            f"Total doado na comunidade: **{format_koins(total)}** koins"
+        ).timestamp().build()
+        await interaction.response.send_message(embed=embed)
+
+    # =========================
+    # /SOBREVIVENCIA
+    # =========================
+
+    @app_commands.command(name="sobrevivencia", description="Embarque em uma aventura de sobrevivencia!")
+    @app_commands.checks.cooldown(1, 30, key=lambda i: i.user.id)
+    async def sobrevivencia(self, interaction: discord.Interaction) -> None:
+        user = await db.get_user(interaction.user.id)
+        hp = user.get("survival_hp", 100)
+        coins_survived = user.get("survival_coins", 0)
+        scenarios = [
+            {"text": "Voce encontra um rio cheio de piranhas. O que faz?", "choices": [
+                {"label": "Nadar", "risk": 0.4, "reward": 500, "hp_loss": 30, "win": "Nadou com sucesso!", "lose": "Piranhas morderam voce!"},
+                {"label": "Construir ponte", "risk": 0.1, "reward": 800, "hp_loss": 0, "win": "Construiu uma ponte segura!", "lose": "A ponte desabou..."},
+            ]},
+            {"text": "Voce acha um baú trancado no chao.", "choices": [
+                {"label": "Forçar tranca", "risk": 0.3, "reward": 1200, "hp_loss": 10, "win": "Abriu o bau e encontrou tesouros!", "lose": "A tranca explodiu no seu rosto!"},
+                {"label": "Procurar chave", "risk": 0.15, "reward": 600, "hp_loss": 0, "win": "Encontrou a chave escondida!", "lose": "Nao achou nada e perdeu tempo..."},
+            ]},
+            {"text": "Um urso aparece na sua frente!", "choices": [
+                {"label": "Fugir", "risk": 0.25, "reward": 300, "hp_loss": 15, "win": "Escapou por pouco!", "lose": "O urso te alcanou!"},
+                {"label": "Fingir de morto", "risk": 0.1, "reward": 400, "hp_loss": 0, "win": "O urso foi embora!", "lose": "O urso nao engoliu..."},
+            ]},
+            {"text": "Voce encontra uma caverna com brilho misterioso.", "choices": [
+                {"label": "Entrar", "risk": 0.35, "reward": 2000, "hp_loss": 20, "win": "Encontrou um diamante!", "lose": "Foi uma armadilha!"},
+                {"label": "Ignorar", "risk": 0.0, "reward": 100, "hp_loss": 0, "win": "Seguiu em frente com seguranca.", "lose": "Seguiu em frente."},
+            ]},
+            {"text": "Um lobo faminto bloqueia o caminho.", "choices": [
+                {"label": "Lutar", "risk": 0.3, "reward": 700, "hp_loss": 25, "win": "Derrotou o lobo!", "lose": "O logo te mordeu!"},
+                {"label": "Dar comida", "risk": 0.05, "reward": 500, "hp_loss": 0, "win": "O lobo foi seu amigo agora!", "lose": "O lobo nao gostou da comida..."},
+            ]},
+            {"text": "Voce precisa escalar uma montanha alta.", "choices": [
+                {"label": "Escalar", "risk": 0.3, "reward": 1500, "hp_loss": 20, "win": "Chegou ao topo e viu uma vista incrivel!", "lose": "Caiu da montanha!"},
+                {"label": "Dar a volta", "risk": 0.1, "reward": 400, "hp_loss": 5, "win": "Encontrou um atalho seguro!", "lose": "Caiu em um buraco..."},
+            ]},
+            {"text": "Voce encontra um acampamento abandonado.", "choices": [
+                {"label": "Procurar suprimentos", "risk": 0.2, "reward": 900, "hp_loss": 0, "win": "Encontrou comida e ferramentas!", "lose": "So encontrou lixo..."},
+                {"label": "Acampar la", "risk": 0.15, "reward": 600, "hp_loss": 10, "win": "Dormiu bem e recuperou forcas!", "lose": "Choveu durante a noite!"},
+            ]},
+            {"text": "Um rio profundo precisa ser cruzado.", "choices": [
+                {"label": "Nadar", "risk": 0.35, "reward": 800, "hp_loss": 15, "win": "Cruzou o rio com seguranca!", "lose": "A corrente te levou!"},
+                {"label": "Procurar barco", "risk": 0.1, "reward": 1000, "hp_loss": 0, "win": "Encontrou um barco!", "lose": "Nao encontrou barco..."},
+            ]},
+        ]
+        scenario = random.choice(scenarios)
+        view = discord.ui.View(timeout=60)
+
+        async def choice_callback(interaction2: discord.Interaction) -> None:
+            if interaction2.user.id != interaction.user.id:
+                return await interaction2.response.send_message(embed=make_embed.error("Acesso Negado", "Nao e sua aventura!"), ephemeral=True)
+            choice_idx = int(interaction2.data["custom_id"].split("_")[1])
+            choice = scenario["choices"][choice_idx]
+            success = random.random() > choice["risk"]
+            user_data = await db.get_user(interaction.user.id)
+            current_hp = user_data.get("survival_hp", 100)
+            current_coins = user_data.get("survival_coins", 0)
+            if success:
+                reward = choice["reward"]
+                new_coins = current_coins + reward
+                await db.users.update_one({"discord_id": interaction.user.id}, {"$set": {"survival_coins": new_coins}}, upsert=True)
+                result_embed = make_embed.success(
+                    "Sobrevivencia!",
+                    f"{choice['win']}\n\n"
+                    f"**Recompensa:** +{format_koins(reward)} koins\n"
+                    f"**HP:** {current_hp}/100\n"
+                    f"**Koins acumulados:** {format_koins(new_coins)}",
+                )
+            else:
+                new_hp = max(0, current_hp - choice["hp_loss"])
+                await db.users.update_one({"discord_id": interaction.user.id}, {"$set": {"survival_hp": new_hp}}, upsert=True)
+                if new_hp <= 0:
+                    await db.users.update_one({"discord_id": interaction.user.id}, {"$set": {"survival_hp": 100, "survival_coins": 0}}, upsert=True)
+                    result_embed = make_embed.error(
+                        "GAME OVER!",
+                        f"{choice['lose']}\n\nVoce morreu e perdeu todos os koins acumulados!\nHP resetado para 100.",
+                    )
+                else:
+                    result_embed = make_embed.warning(
+                        "Sobrevivencia!",
+                        f"{choice['lose']}\n\n"
+                        f"**Dano:** -{choice['hp_loss']} HP\n"
+                        f"**HP:** {new_hp}/100\n"
+                        f"**Koins acumulados:** {format_koins(current_coins)}",
+                    )
+            await interaction2.response.edit_message(embed=result_embed, view=None)
+
+        for i, c in enumerate(scenario["choices"]):
+            btn = discord.ui.Button(label=f"{c['label']} ({int(c['risk']*100)}% risco)", style=discord.ButtonStyle.primary, custom_id=f"choice_{i}")
+            btn.callback = choice_callback
+            view.add_item(btn)
+
+        embed = make_embed("warning").title("Sobrevivencia!").desc(
+            f"Voce tem **{hp}/100** HP e **{format_koins(coins_survived)}** koins acumulados.\n\n{scenario['text']}"
+        ).timestamp().build()
+        await interaction.response.send_message(embed=embed, view=view)
+
+    # =========================
+    # VIEW: Batalha PvP
+    # =========================
 
 
 class BattleView(discord.ui.View):
@@ -3284,6 +3525,122 @@ class SlotView(discord.ui.View):
     async def on_timeout(self) -> None:
         for child in self.children:
             child.disabled = True
+
+
+# =========================
+# /VENDER
+# =========================
+
+class ConfirmVendaView(discord.ui.View):
+    def __init__(self, author: discord.Member, item_key: str, item_data: dict, sell_price: int) -> None:
+        super().__init__(timeout=30)
+        self.author = author
+        self.item_key = item_key
+        self.item_data = item_data
+        self.sell_price = sell_price
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author.id:
+            await interaction.response.send_message(embed=make_embed.error("Acesso Negado", "Essa venda nao e sua!"), ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Vender", style=discord.ButtonStyle.green)
+    async def confirm_sell(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        removed = await db.remove_inventory_item(self.author.id, self.item_key, 1)
+        if not removed:
+            return await interaction.response.edit_message(
+                embed=make_embed.error("Erro", "Voce nao tem mais esse item!"), view=None,
+            )
+        await db.add_koins(self.author.id, self.sell_price)
+        embed = make_embed.success(
+            "Item Vendido!",
+            f"Voce vendeu **{self.item_data['emoji']} {self.item_data['name']}** por **{format_koins(self.sell_price)}** koins!",
+        )
+        await interaction.response.edit_message(embed=embed, view=None)
+
+    @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.secondary)
+    async def cancel_sell(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.edit_message(embed=make_embed.info("Cancelado", "Venda cancelada."), view=None)
+
+    async def on_timeout(self) -> None:
+        for child in self.children:
+            child.disabled = True
+
+
+class VenderSelect(discord.ui.Select):
+    def __init__(self, author: discord.Member, items: dict) -> None:
+        self.author = author
+        self.items_data = items
+        options = []
+        shop_items = settings.shop_items
+        for key, qty in items.items():
+            if key in shop_items and qty > 0:
+                si = shop_items[key]
+                sell_price = int(si["price"] * 0.5)
+                options.append(discord.SelectOption(
+                    label=f"{si['name']} x{qty}",
+                    description=f"Vende por {format_koins(sell_price)} koins",
+                    value=key,
+                    emoji=si.get("emoji", "📦"),
+                ))
+        if not options:
+            options.append(discord.SelectOption(label="Nenhum item para vender", value="none"))
+        super().__init__(placeholder="Selecione um item para vender...", options=options[:25])
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        if self.values[0] == "none":
+            return await interaction.response.send_message(embed=make_embed.info("Aviso", "Voce nao tem itens na loja para vender."), ephemeral=True)
+        key = self.values[0]
+        if key not in self.items_data or self.items_data[key] <= 0:
+            return await interaction.response.send_message(embed=make_embed.error("Erro", "Item nao encontrado."), ephemeral=True)
+        si = settings.shop_items[key]
+        sell_price = int(si["price"] * 0.5)
+        view = ConfirmVendaView(self.author, key, si, sell_price)
+        embed = make_embed.info(
+            "Confirmar Venda",
+            f"Vender **{si['emoji']} {si['name']}** (x{self.items_data[key]}) por **{format_koins(sell_price)}** koins?\n"
+            f"*(50% do preco de compra)*",
+        )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
+class VenderView(discord.ui.View):
+    def __init__(self, author: discord.Member, items: dict) -> None:
+        super().__init__(timeout=60)
+        self.add_item(VenderSelect(author, items))
+
+
+class VenderModal(discord.ui.Modal, title="Vender Item"):
+    item_name = discord.ui.TextInput(label="Nome do item", placeholder="Ex: caixa_ferro", required=True)
+
+    def __init__(self, author: discord.Member) -> None:
+        super().__init__()
+        self.author = author
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        key = self.item_name.value.strip().lower()
+        shop_items = settings.shop_items
+        if key not in shop_items:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Item Invalido", f"Use `/loja` para ver os itens disponiveis."), ephemeral=True,
+            )
+        inv = await db.get_inventory(self.author.id)
+        items = inv.get("items", {})
+        qty = items.get(key, 0)
+        if qty <= 0:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Sem Estoque", f"Voce nao tem **{shop_items[key]['name']}** no inventario."), ephemeral=True,
+            )
+        si = shop_items[key]
+        sell_price = int(si["price"] * 0.5)
+        view = ConfirmVendaView(self.author, key, si, sell_price)
+        embed = make_embed.info(
+            "Confirmar Venda",
+            f"Vender **{si['emoji']} {si['name']}** (x{qty}) por **{format_koins(sell_price)}** koins?\n"
+            f"*(50% do preco de compra)*",
+        )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
 async def setup(bot: KlausBot) -> None:

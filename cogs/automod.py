@@ -97,40 +97,6 @@ class AutoMod(commands.Cog):
     # CONFIG COMMANDS
     # =========================
 
-    @app_commands.command(name="automod", description="Configure o auto-mod.")
-    @app_commands.describe(config="O que configurar", valor="true ou false")
-    @app_commands.choices(config=[
-        app_commands.Choice(name="Anti-Spam", value="spam"),
-        app_commands.Choice(name="Anti-Links", value="links"),
-        app_commands.Choice(name="Palavras Proibidas", value="bad_words"),
-        app_commands.Choice(name="Anti-Mentions em Massa", value="mass_mentions"),
-    ])
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def automod(self, interaction: discord.Interaction, config: app_commands.Choice[str], valor: str) -> None:
-        if not interaction.guild:
-            return
-
-        enabled = valor.lower() in ("true", "on", "1", "sim", "yes")
-        field_map = {
-            "spam": "automod_links",
-            "links": "automod_links",
-            "bad_words": "automod_bad_words",
-            "mass_mentions": "automod_mass_mentions",
-        }
-        field = field_map.get(config.value, f"automod_{config.value}")
-        await db.set_guild_config(interaction.guild.id, **{field: enabled})
-
-        status = "\u2705 Ativado" if enabled else "\u274c Desativado"
-        embed = (
-            make_embed("success")
-            .title(f"\U0001f6e1\ufe0f AutoMod - {config.name}")
-            .desc(f"**{config.name}** foi **{'ativado' if enabled else 'desativado'}**!")
-            .field("Status", f"```{status}```")
-            .timestamp()
-            .build()
-        )
-        await interaction.response.send_message(embed=embed)
-
     @app_commands.command(name="add_badword", description="Adicione uma palavra proibida.")
     @app_commands.describe(palavra="Palavra para proibir")
     @app_commands.checks.has_permissions(manage_guild=True)
