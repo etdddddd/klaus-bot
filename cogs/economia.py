@@ -866,12 +866,20 @@ class Economia(commands.Cog):
             await db.add_achievement(interaction.user.id, "streak_7")
         if streak >= 30:
             await db.add_achievement(interaction.user.id, "streak_30")
-        if balance >= 100000:
-            await db.add_achievement(interaction.user.id, "rich_100k")
-        if balance >= 1000000:
-            await db.add_achievement(interaction.user.id, "rich_1m")
         if streak >= 100:
             await db.add_achievement(interaction.user.id, "streak_100")
+        if streak >= 365:
+            await db.add_achievement(interaction.user.id, "streak_365")
+        if balance >= 100000:
+            await db.add_achievement(interaction.user.id, "rich_100k")
+        if balance >= 500000:
+            await db.add_achievement(interaction.user.id, "rich_500k")
+        if balance >= 1000000:
+            await db.add_achievement(interaction.user.id, "rich_1m")
+        if balance >= 10000000:
+            await db.add_achievement(interaction.user.id, "rich_10m")
+        if balance >= 100000000:
+            await db.add_achievement(interaction.user.id, "rich_100m")
         if total >= 10000:
             await db.add_achievement(interaction.user.id, "big_daily")
 
@@ -926,6 +934,58 @@ class Economia(commands.Cog):
             .build()
         )
         await interaction.response.send_message(embed=embed)
+
+    # =========================
+    # /WEEKLY
+    # =========================
+
+    @app_commands.command(name="weekly", description="Receba sua recompensa semanal")
+    @app_commands.checks.cooldown(1, 7 * 24 * 3600, key=lambda i: (i.guild_id, i.user.id))
+    async def weekly(self, interaction: discord.Interaction) -> None:
+        is_premium = await db.is_premium(interaction.user.id)
+
+        base = random.randint(15000, 45000)
+        streak_data = await db.update_streak(interaction.user.id, premium=is_premium)
+        streak = streak_data.get("streak", 0)
+        streak_mult = 1.0 + min(streak * 0.02, 2.0)
+
+        total = int(base * streak_mult)
+        if is_premium:
+            total = int(total * 2.5)
+
+        await db.add_koins(interaction.user.id, total)
+        balance = await db.get_balance(interaction.user.id)
+
+        await db.add_achievement(interaction.user.id, "weekly_1")
+
+        streak_text = f"\n🔥 Sequência: **{streak} dias** (x{streak_mult:.1f})" if streak > 1 else ""
+        premium_text = " 👑 **2.5x PREMIUM**" if is_premium else ""
+
+        embed = (
+            make_embed("purple")
+            .title("Recompensa Semanal Coletada!")
+            .field("💵 Recebido", f"```+ {format_koins(total)} koins```")
+            .field("🏦 Saldo Atual", f"```{format_koins(balance)} koins```")
+            .desc(f"Próxima recompensa em **7 dias**!{streak_text}{premium_text}")
+            .thumb(interaction.user.display_avatar.url)
+            .footer(f"Volte na próxima semana! • {interaction.user.display_name}", interaction.user.display_avatar.url)
+            .timestamp()
+            .build()
+        )
+        await interaction.response.send_message(embed=embed)
+
+    @weekly.error
+    async def weekly_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+        if isinstance(error, app_commands.CommandOnCooldown):
+            retry = error.cooldown.get_retry_after()
+            d = int(retry // 86400)
+            h = int((retry % 86400) // 3600)
+            m = int((retry % 3600) // 60)
+            embed = make_embed.error("Cooldown Semanal", f"Tente novamente em: **{d}d {h}h {m}m**")
+            embed.set_thumbnail(url=interaction.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            raise error
 
     # =========================
     # /PERFIL
@@ -1198,6 +1258,16 @@ class Economia(commands.Cog):
         await db.add_koins(interaction.user.id, salary)
         if is_premium:
             await db.add_achievement(interaction.user.id, "premium_worker")
+
+        # Track work count for achievements
+        user_data = await db.get_user(interaction.user.id)
+        work_count = user_data.get("stats", {}).get("work_count", 0) + 1
+        await db.update_user(interaction.user.id, {"$set": {"stats.work_count": work_count}})
+        if work_count >= 100:
+            await db.add_achievement(interaction.user.id, "work_100")
+        if work_count >= 500:
+            await db.add_achievement(interaction.user.id, "work_500")
+
         balance = await db.get_balance(interaction.user.id)
 
         final = (
@@ -2007,6 +2077,8 @@ class Economia(commands.Cog):
         await db.add_achievement(interaction.user.id, "cofre_100k")
         if result["cofre"]["balance"] >= 500000:
             await db.add_achievement(interaction.user.id, "cofre_500k")
+        if result["cofre"]["balance"] >= 1000000:
+            await db.add_achievement(interaction.user.id, "cofre_1m")
 
         embed = (
             make_embed("success")
@@ -2150,6 +2222,8 @@ class Economia(commands.Cog):
                 await db.add_achievement(interaction.user.id, "crime_10")
             if crimes_count >= 50:
                 await db.add_achievement(interaction.user.id, "crime_50")
+            if crimes_count >= 100:
+                await db.add_achievement(interaction.user.id, "crime_100")
 
             result = (
                 make_embed("success")

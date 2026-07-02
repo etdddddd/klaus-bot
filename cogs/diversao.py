@@ -491,8 +491,69 @@ class CasalRecalcButton(discord.ui.Button["CasalView"]):
             )
             return
 
-        embed = _build_casal_embed(g1, g2)
-        await interaction.response.send_message(embed=embed, view=CasalView(self.user1_id, self.user2_id))
+        await interaction.response.defer()
+
+        name1 = g1.display_name.lower()
+        name2 = g2.display_name.lower()
+        ship_name = (name1[:3] + name2[:3]).title()
+
+        name_factor = min(len(name1) + len(name2), 30) / 30
+        id_factor = ((g1.id + g2.id) % 100) / 100
+        random_factor = random.random()
+        weighted = int(name_factor * 30 + id_factor * 30 + random_factor * 40)
+        compat = max(5, min(100, weighted))
+
+        if compat >= 80:
+            msg = "🌟 Vocês foram escritos nas estrelas! Um casal destiny!"
+            cor = 0xF59E0B
+        elif compat >= 60:
+            msg = "💖 Muita química! O universo conspira a favor de vocês!"
+            cor = 0xD946EF
+        elif compat >= 40:
+            msg = "🔥 Tem potencial! Um pouco de esforço e vira algo lindo."
+            cor = 0xEC4899
+        elif compat >= 20:
+            msg = "🤔 Hmm... talvez como amigos? Deixa rolar!"
+            cor = 0xF97316
+        else:
+            msg = "💔 Melhor manter distância... ou não?!"
+            cor = 0xEF4444
+
+        from ship_generator import generate_ship
+
+        ship_buf = generate_ship(
+            avatar1_url=str(g1.display_avatar.with_size(256).url),
+            avatar2_url=str(g2.display_avatar.with_size(256).url),
+            name1=g1.display_name,
+            name2=g2.display_name,
+            compat=compat,
+            ship_name=ship_name,
+            name_factor=name_factor,
+            id_factor=id_factor,
+            random_factor=random_factor,
+        )
+
+        file = discord.File(fp=ship_buf, filename="ship.png")
+
+        embed = (
+            make_embed(cor)
+            .title("💖 Klaus Casal Calculator")
+            .desc(
+                f"**{g1.display_name}** ❤️ **{g2.display_name}**\n\n"
+                f"**{compat}%** compatibilidade!\n\n"
+                f"**Fatores:**\n"
+                f"• Nomes: `{int(name_factor * 30)}/30`\n"
+                f"• IDs: `{int(id_factor * 30)}/30`\n"
+                f"• Destino: `{int(random_factor * 40)}/40`\n\n"
+                f"_{msg}_"
+            )
+            .image("attachment://ship.png")
+            .footer("Klaus Casal Calculator • Toque em Recalcular para gerar novo casal")
+            .timestamp()
+            .build()
+        )
+
+        await interaction.followup.send(embed=embed, file=file, view=CasalView(self.user1_id, self.user2_id))
 
 
 class CasalView(discord.ui.View):
@@ -899,8 +960,72 @@ class ShipReverButton(discord.ui.Button["ShipView"]):
             )
             return
 
-        embed = _build_ship_embed(u1, u2)
-        await interaction.response.send_message(embed=embed, view=ShipView(self.user1_id, self.user2_id))
+        await interaction.response.defer()
+
+        name1 = u1.display_name.lower()
+        name2 = u2.display_name.lower()
+        ship_name = (name1[:3] + name2[:3]).title()
+
+        name_factor = min(len(name1) + len(name2), 30) / 30
+        id_factor = ((u1.id + u2.id) % 100) / 100
+        random_factor = random.random()
+        weighted = int(name_factor * 25 + id_factor * 25 + random_factor * 50)
+        compat = max(1, min(100, weighted))
+
+        if compat == 100:
+            msg = "🌟 **MATCH PERFEITO!** Vocês são almas gêmeas!"
+            cor = 0xF59E0B
+        elif compat >= 80:
+            msg = "💖 Conexão muito forte! O destino sussurra seu nome!"
+            cor = 0xD946EF
+        elif compat >= 60:
+            msg = "🔥 Muita química! O universo está torcendo por vocês!"
+            cor = 0xEC4899
+        elif compat >= 40:
+            msg = "🤔 Pode rolar algo... deixe a mágica acontecer!"
+            cor = 0x8B5CF6
+        elif compat >= 20:
+            msg = "😐 Quem sabe? Às vezes o improvável vira lindo!"
+            cor = 0x6366F1
+        else:
+            msg = "💔 Melhor ser amigos... mas nunca diga nunca!"
+            cor = 0x6B7280
+
+        from ship_generator import generate_ship
+
+        ship_buf = generate_ship(
+            avatar1_url=str(u1.display_avatar.with_size(256).url),
+            avatar2_url=str(u2.display_avatar.with_size(256).url),
+            name1=u1.display_name,
+            name2=u2.display_name,
+            compat=compat,
+            ship_name=ship_name,
+            name_factor=name_factor,
+            id_factor=id_factor,
+            random_factor=random_factor,
+        )
+
+        file = discord.File(fp=ship_buf, filename="ship.png")
+
+        embed = (
+            make_embed(cor)
+            .title("💖 Klaus Ship Calculator")
+            .desc(
+                f"**{u1.display_name}** ❤️ **{u2.display_name}**\n\n"
+                f"**{compat}%** compatibilidade!\n\n"
+                f"**Fatores:**\n"
+                f"• Nomes: `{int(name_factor * 25)}/25`\n"
+                f"• IDs: `{int(id_factor * 25)}/25`\n"
+                f"• Destino: `{int(random_factor * 50)}/50`\n\n"
+                f"_{msg}_"
+            )
+            .image("attachment://ship.png")
+            .footer("Klaus Ship Calculator • Toque em Rever para recalcular")
+            .timestamp()
+            .build()
+        )
+
+        await interaction.followup.send(embed=embed, file=file, view=ShipView(self.user1_id, self.user2_id))
 
 
 class ShipView(discord.ui.View):
@@ -1088,15 +1213,79 @@ class Diversao(commands.Cog):
         await interaction.response.send_message(embed=embed, view=view)
 
     # =========================
-    # /SHIP (enhanced)
+    # /SHIP (enhanced with image)
     # =========================
 
     @app_commands.command(name="ship", description="Calcule a compatibilidade entre duas pessoas.")
     @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
     @app_commands.describe(user1="Primeira pessoa", user2="Segunda pessoa")
     async def ship(self, interaction: discord.Interaction, user1: discord.Member, user2: discord.Member) -> None:
-        embed = _build_ship_embed(user1, user2)
-        await interaction.response.send_message(embed=embed, view=ShipView(user1.id, user2.id))
+        await interaction.response.defer()
+
+        name1 = user1.display_name.lower()
+        name2 = user2.display_name.lower()
+        ship_name = (name1[:3] + name2[:3]).title()
+
+        name_factor = min(len(name1) + len(name2), 30) / 30
+        id_factor = ((user1.id + user2.id) % 100) / 100
+        random_factor = random.random()
+        weighted = int(name_factor * 25 + id_factor * 25 + random_factor * 50)
+        compat = max(1, min(100, weighted))
+
+        if compat == 100:
+            msg = "🌟 **MATCH PERFEITO!** Vocês são almas gêmeas!"
+            cor = 0xF59E0B
+        elif compat >= 80:
+            msg = "💖 Conexão muito forte! O destino sussurra seu nome!"
+            cor = 0xD946EF
+        elif compat >= 60:
+            msg = "🔥 Muita química! O universo está torcendo por vocês!"
+            cor = 0xEC4899
+        elif compat >= 40:
+            msg = "🤔 Pode rolar algo... deixe a mágica acontecer!"
+            cor = 0x8B5CF6
+        elif compat >= 20:
+            msg = "😐 Quem sabe? Às vezes o improvável vira lindo!"
+            cor = 0x6366F1
+        else:
+            msg = "💔 Melhor ser amigos... mas nunca diga nunca!"
+            cor = 0x6B7280
+
+        from ship_generator import generate_ship
+
+        ship_buf = generate_ship(
+            avatar1_url=str(user1.display_avatar.with_size(256).url),
+            avatar2_url=str(user2.display_avatar.with_size(256).url),
+            name1=user1.display_name,
+            name2=user2.display_name,
+            compat=compat,
+            ship_name=ship_name,
+            name_factor=name_factor,
+            id_factor=id_factor,
+            random_factor=random_factor,
+        )
+
+        file = discord.File(fp=ship_buf, filename="ship.png")
+
+        embed = (
+            make_embed(cor)
+            .title("💖 Klaus Ship Calculator")
+            .desc(
+                f"**{user1.display_name}** ❤️ **{user2.display_name}**\n\n"
+                f"**{compat}%** compatibilidade!\n\n"
+                f"**Fatores:**\n"
+                f"• Nomes: `{int(name_factor * 25)}/25`\n"
+                f"• IDs: `{int(id_factor * 25)}/25`\n"
+                f"• Destino: `{int(random_factor * 50)}/50`\n\n"
+                f"_{msg}_"
+            )
+            .image("attachment://ship.png")
+            .footer("Klaus Ship Calculator • Toque em Rever para recalcular")
+            .timestamp()
+            .build()
+        )
+
+        await interaction.followup.send(embed=embed, file=file, view=ShipView(user1.id, user2.id))
 
     # =========================
     # /CASAL
@@ -1106,8 +1295,69 @@ class Diversao(commands.Cog):
     @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
     @app_commands.describe(member1="Primeira pessoa", member2="Segunda pessoa")
     async def casal(self, interaction: discord.Interaction, member1: discord.Member, member2: discord.Member) -> None:
-        embed = _build_casal_embed(member1, member2)
-        await interaction.response.send_message(embed=embed, view=CasalView(member1.id, member2.id))
+        await interaction.response.defer()
+
+        name1 = member1.display_name.lower()
+        name2 = member2.display_name.lower()
+        ship_name = (name1[:3] + name2[:3]).title()
+
+        name_factor = min(len(name1) + len(name2), 30) / 30
+        id_factor = ((member1.id + member2.id) % 100) / 100
+        random_factor = random.random()
+        weighted = int(name_factor * 30 + id_factor * 30 + random_factor * 40)
+        compat = max(5, min(100, weighted))
+
+        if compat >= 80:
+            msg = "🌟 Vocês foram escritos nas estrelas! Um casal destiny!"
+            cor = 0xF59E0B
+        elif compat >= 60:
+            msg = "💖 Muita química! O universo conspira a favor de vocês!"
+            cor = 0xD946EF
+        elif compat >= 40:
+            msg = "🔥 Tem potencial! Um pouco de esforço e vira algo lindo."
+            cor = 0xEC4899
+        elif compat >= 20:
+            msg = "🤔 Hmm... talvez como amigos? Deixa rolar!"
+            cor = 0xF97316
+        else:
+            msg = "💔 Melhor manter distância... ou não?!"
+            cor = 0xEF4444
+
+        from ship_generator import generate_ship
+
+        ship_buf = generate_ship(
+            avatar1_url=str(member1.display_avatar.with_size(256).url),
+            avatar2_url=str(member2.display_avatar.with_size(256).url),
+            name1=member1.display_name,
+            name2=member2.display_name,
+            compat=compat,
+            ship_name=ship_name,
+            name_factor=name_factor,
+            id_factor=id_factor,
+            random_factor=random_factor,
+        )
+
+        file = discord.File(fp=ship_buf, filename="ship.png")
+
+        embed = (
+            make_embed(cor)
+            .title("💖 Klaus Casal Calculator")
+            .desc(
+                f"**{member1.display_name}** ❤️ **{member2.display_name}**\n\n"
+                f"**{compat}%** compatibilidade!\n\n"
+                f"**Fatores:**\n"
+                f"• Nomes: `{int(name_factor * 30)}/30`\n"
+                f"• IDs: `{int(id_factor * 30)}/30`\n"
+                f"• Destino: `{int(random_factor * 40)}/40`\n\n"
+                f"_{msg}_"
+            )
+            .image("attachment://ship.png")
+            .footer("Klaus Casal Calculator • Toque em Recalcular para gerar novo casal")
+            .timestamp()
+            .build()
+        )
+
+        await interaction.followup.send(embed=embed, file=file, view=CasalView(member1.id, member2.id))
 
     # =========================
     # /COIN
@@ -1544,6 +1794,338 @@ class Diversao(commands.Cog):
             embed=embed,
             view=PollView(question, options, interaction.user.display_name),
         )
+
+    # =========================
+    # /REACAO
+    # =========================
+
+    @app_commands.command(name="reacao", description="Teste seus reflexos! Quanto mais rápido, mais koins ganha.")
+    async def reacao(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(
+            embed=make_embed("purple")
+            .title("Teste de Reação")
+            .desc("Quando o bot disser **VAI**, clique no botão o mais rápido possível!")
+            .footer(f"Preparado por {interaction.user.display_name}")
+            .timestamp()
+            .build()
+        )
+
+        view = ReactionView(interaction.user)
+        msg = await interaction.original_response()
+
+        await asyncio.sleep(random.uniform(2, 5))
+
+        start_time = time.monotonic()
+        view.start_time = start_time
+        view.active = True
+        view.msg = msg
+
+        await msg.edit(
+            embed=make_embed("success")
+            .title("VAI!")
+            .desc("Clique no botão AGORA!")
+            .footer("Quanto mais rápido, mais koins!")
+            .timestamp()
+            .build(),
+            view=view,
+        )
+
+    # =========================
+    # /ADIVINHA
+    # =========================
+
+    @app_commands.command(name="adivinha", description="Adivinhe um número de 1-100 e aposte koins!")
+    @app_commands.describe(quantia="Quantidade de koins para apostar", palpite="Seu palpite (1-100)")
+    async def adivinha(
+        self,
+        interaction: discord.Interaction,
+        quantia: int,
+        palpite: int,
+    ) -> None:
+        from database import db
+        from helpers import format_koins
+
+        if quantia <= 0:
+            await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Quantia deve ser positiva."), ephemeral=True
+            )
+            return
+
+        balance = await db.get_balance(interaction.user.id)
+        if balance < quantia:
+            await interaction.response.send_message(
+                embed=make_embed.error("Saldo Insuficiente", f"Saldo: **{format_koins(balance)}** koins"),
+                ephemeral=True,
+            )
+            return
+
+        if palpite < 1 or palpite > 100:
+            await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Palpite deve ser entre 1 e 100."), ephemeral=True
+            )
+            return
+
+        secret = random.randint(1, 100)
+        diff = abs(secret - palpite)
+
+        if diff == 0:
+            mult = 10
+            desc = f"🎯 **PERFEITO!** O número era **{secret}**!"
+            color = "success"
+        elif diff <= 5:
+            mult = 5
+            desc = f"🔥 Muito perto! O número era **{secret}** (diferença: {diff})"
+            color = "warning"
+        elif diff <= 15:
+            mult = 2
+            desc = f"😊 Perto! O número era **{secret}** (diferença: {diff})"
+            color = "purple"
+        else:
+            mult = 0
+            desc = f"💀 Longe demais! O número era **{secret}** (diferença: {diff})"
+            color = "error"
+
+        winnings = int(quantia * mult)
+        if winnings > 0:
+            await db.add_koins(interaction.user.id, winnings)
+        else:
+            await db.remove_koins(interaction.user.id, quantia)
+
+        new_bal = await db.get_balance(interaction.user.id)
+
+        embed = (
+            make_embed(color)
+            .title("Adivinha o Número!")
+            .desc(desc)
+            .field("Seu Palpite", f"```{palpite}```")
+            .field("Número Secreto", f"```{secret}```")
+            .field("Resultado", f"```{'+' if winnings > 0 else '-'} {format_koins(abs(winnings))} koins```")
+            .field("Saldo", f"```{format_koins(new_bal)} koins```")
+            .thumb(interaction.user.display_avatar.url)
+            .footer(f"Klaus Adivinha • {interaction.user.display_name}")
+            .timestamp()
+            .build()
+        )
+        await interaction.response.send_message(embed=embed)
+
+    # =========================
+    # /CORRIDA (RACE)
+    # =========================
+
+    @app_commands.command(name="corrida", description="Corra contra outros jogadores! aposte koins e ganhe o pote.")
+    @app_commands.describe(quantia="Quantidade de koins para apostar")
+    async def corrida(
+        self,
+        interaction: discord.Interaction,
+        quantia: int,
+    ) -> None:
+        from database import db
+        from helpers import format_koins
+
+        if quantia <= 0:
+            await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Quantia deve ser positiva."), ephemeral=True
+            )
+            return
+
+        balance = await db.get_balance(interaction.user.id)
+        if balance < quantia:
+            await interaction.response.send_message(
+                embed=make_embed.error("Saldo Insuficiente", f"Saldo: **{format_koins(balance)}** koins"),
+                ephemeral=True,
+            )
+            return
+
+        view = RaceView(interaction.user, quantia)
+        await interaction.response.send_message(
+            embed=make_embed("purple")
+            .title("Corrida de Koins!")
+            .desc(f"**{interaction.user.display_name}** apostou **{format_koins(quantia)}** koins!\n\nClique **Participar** para entrar (10 segundos).")
+            .footer("Aposte seu dinheiro!")
+            .timestamp()
+            .build(),
+            view=view,
+        )
+        view.message = await interaction.original_response()
+
+
+class ReactionView(discord.ui.View):
+    def __init__(self, author: discord.Member) -> None:
+        super().__init__(timeout=10)
+        self.author = author
+        self.active = False
+        self.start_time: float = 0
+        self.msg: discord.Message | None = None
+        self.clicked = False
+
+    @discord.ui.button(label="CLIQUE AQUI!", style=discord.ButtonStyle.success, emoji="⚡")
+    async def react(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if interaction.user.id != self.author.id:
+            await interaction.response.send_message("Essa não é sua reação!", ephemeral=True)
+            return
+
+        if not self.active:
+            await interaction.response.send_message("Ainda não! Aguarde o sinal...", ephemeral=True)
+            return
+
+        if self.clicked:
+            await interaction.response.send_message("Já clicou!", ephemeral=True)
+            return
+
+        self.clicked = True
+        elapsed = time.monotonic() - self.start_time
+        ms = int(elapsed * 1000)
+
+        from database import db
+        from helpers import format_koins
+
+        if ms < 200:
+            reward = 5000
+            tier = "⚡ LENDÁRIO"
+        elif ms < 350:
+            reward = 3000
+            tier = "🔥 Increível"
+        elif ms < 500:
+            reward = 1500
+            tier = "✨ Rápido"
+        elif ms < 750:
+            reward = 800
+            tier = "👍 Bom"
+        else:
+            reward = 300
+            tier = "🐢 Lento"
+
+        await db.add_koins(self.author.id, reward)
+        bal = await db.get_balance(self.author.id)
+
+        embed = (
+            make_embed("success")
+            .title(f"Reação: {tier}")
+            .desc(f"**{ms}ms** — Você ganhou **{format_koins(reward)}** koins!")
+            .field("Saldo", f"```{format_koins(bal)} koins```")
+            .thumb(self.author.display_avatar.url)
+            .footer(f"Klaus Reação • {self.author.display_name}")
+            .timestamp()
+            .build()
+        )
+
+        for child in self.children:
+            child.disabled = True
+
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def on_timeout(self) -> None:
+        if not self.clicked and self.msg:
+            embed = (
+                make_embed("error")
+                .title("Reação: Tempo Esgotado!")
+                .desc("**{0}** não foi rápido o suficiente!".format(self.author.display_name))
+                .footer("Tente novamente!")
+                .timestamp()
+                .build()
+            )
+            for child in self.children:
+                child.disabled = True
+            try:
+                await self.msg.edit(embed=embed, view=self)
+            except discord.HTTPException:
+                pass
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user.id == self.author.id
+
+
+class RaceView(discord.ui.View):
+    def __init__(self, author: discord.Member, bet: int) -> None:
+        super().__init__(timeout=10)
+        self.author = author
+        self.bet = bet
+        self.runners: list[discord.Member] = []
+        self.resolved = False
+        self.message: discord.Message | None = None
+
+    @discord.ui.button(label="Participar", style=discord.ButtonStyle.primary, emoji="🏃")
+    async def join(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        from database import db
+        from helpers import format_koins
+
+        if interaction.user.id == self.author.id:
+            await interaction.response.send_message("Você já é o organizador!", ephemeral=True)
+            return
+
+        bal = await db.get_balance(interaction.user.id)
+        if bal < self.bet:
+            await interaction.response.send_message(
+                embed=make_embed.error("Saldo Insuficiente", f"Necessário: **{format_koins(self.bet)}** koins"),
+                ephemeral=True,
+            )
+            return
+
+        if interaction.user in self.runners:
+            await interaction.response.send_message("Já está participando!", ephemeral=True)
+            return
+
+        self.runners.append(interaction.user)
+        await interaction.response.send_message(
+            f"✅ **{interaction.user.display_name}** entrou na corrida! ({len(self.runners)} participantes)",
+            ephemeral=False,
+        )
+
+    async def on_timeout(self) -> None:
+        if self.resolved:
+            return
+        self.resolved = True
+
+        from database import db
+        from helpers import format_koins
+
+        all_players = [self.author] + self.runners
+        if len(all_players) < 2:
+            embed = (
+                make_embed("error")
+                .title("Corrida Cancelada!")
+                .desc("Não houve participantes suficientes.")
+                .footer("Tente novamente!")
+                .timestamp()
+                .build()
+            )
+            for child in self.children:
+                child.disabled = True
+            if self.message:
+                try:
+                    await self.message.edit(embed=embed, view=self)
+                except discord.HTTPException:
+                    pass
+            return
+
+        total_pot = self.bet * len(all_players)
+        winner = random.choice(all_players)
+
+        for player in all_players:
+            await db.remove_koins(player.id, self.bet)
+
+        await db.add_koins(winner.id, total_pot)
+
+        embed = (
+            make_embed("success")
+            .title("Corrida Finalizada!")
+            .desc(
+                f"🏆 **{winner.display_name}** venceu!\n\n"
+                f"💰 Prêmio: **{format_koins(total_pot)}** koins\n"
+                f"👥 Participantes: {len(all_players)}"
+            )
+            .thumb(winner.display_avatar.url)
+            .footer("Klaus Corrida")
+            .timestamp()
+            .build()
+        )
+        for child in self.children:
+            child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(embed=embed, view=self)
+            except discord.HTTPException:
+                pass
 
 
 async def setup(bot: KlausBot) -> None:

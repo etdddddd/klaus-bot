@@ -415,7 +415,6 @@ def generate_profile(
     if effects is None:
         effects = {"particles": 60, "sparkles": 10, "stripes": False, "grid": False, "glow": 1}
 
-    # ── SIMPLIFY: reduce all effects for cleaner look ──
     effects = dict(effects)
     effects["particles"] = max(0, int(effects.get("particles", 60) * 0.3))
     effects["sparkles"] = max(0, int(effects.get("sparkles", 10) * 0.25))
@@ -437,13 +436,12 @@ def generate_profile(
 
     for y in range(H):
         t = y / H
-        c1 = _lerp(bg, _dim(brd, 0.2), t * 0.4)
-        c2 = _lerp(c1, _dim(acc, 0.15), t * 0.3)
+        c1 = _lerp(bg, _dim(brd, 0.15), t * 0.3)
+        c2 = _lerp(c1, _dim(acc, 0.1), t * 0.2)
         draw.line((0, y, W, y), fill=c2 + (255,))
 
     seed = hash((bg_color, border_color)) % 100000
 
-    # ── TYPE-BASED EFFECTS ──
     if effect_type == "aurora":
         img = _effect_aurora(img, [brd, acc], max(1, effect_intensity))
     elif effect_type == "embers":
@@ -467,9 +465,8 @@ def generate_profile(
         img = _effect_sacred_geometry(img, brt, max(1, effect_intensity))
     else:
         if glow_level >= 1:
-            img = _soft_glow(img, 400, 260, int(120 * glow_level * 0.3), brd, glow_level * 0.3)
+            img = _soft_glow(img, 400, 260, int(120 * glow_level * 0.2), brd, glow_level * 0.2)
 
-    # ── BASE EFFECTS (always applied, layered on top) ──
     if do_grid:
         img = _effect_grid_glow(img, brd, glow_level)
 
@@ -477,43 +474,22 @@ def generate_profile(
         img = _diagonal_stripes(img, brd, spacing=90, alpha=7)
         img = _diagonal_stripes(img, acc, spacing=130, alpha=5)
 
-    if glow_level >= 1:
-        gi = glow_level * 0.3
-        img = _soft_glow(img, 700, 80, int(60 * gi), brd, gi)
-        img = _soft_glow(img, 750, 440, int(40 * gi), brd, gi * 0.7)
-
     if n_particles > 0:
         img = _particles_v2(img, brt2, count=n_particles, seed=seed)
         img = _sparkles_v2(img, brt, count=n_sparkles, seed=seed + 1)
 
-    for cx, cy, r, a in [(720, -40, 100, 8), (750, 440, 60, 6)]:
-        img = _soft_glow(img, cx, cy, r, brd, a / 20.0)
-
-    # ── THEMED ART ──
     img = apply_theme_art(img, theme, brd, acc, seed=seed)
 
-    # ── TOP/BOTTOM GLOW LINES ──
-    for i in range(3):
-        a = int(180 - i * 50) * glow_level // 2
-        a = max(0, min(255, a))
-        if a < 1:
-            break
-        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        ImageDraw.Draw(ov).rectangle((0, i, W, i + 1), fill=_alpha(brt, a))
-        ov = ov.filter(ImageFilter.GaussianBlur(1))
-        img = Image.alpha_composite(img, ov)
+    ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(ov).rectangle((0, 0, W, 1), fill=_alpha(brt, int(120 * glow_level)))
+    ov = ov.filter(ImageFilter.GaussianBlur(1))
+    img = Image.alpha_composite(img, ov)
 
-    for i in range(3):
-        a = int(140 - i * 35) * glow_level // 2
-        a = max(0, min(255, a))
-        if a < 1:
-            break
-        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        ImageDraw.Draw(ov).rectangle((0, H - 1 - i, W, H - i), fill=_alpha(acc, a))
-        ov = ov.filter(ImageFilter.GaussianBlur(1))
-        img = Image.alpha_composite(img, ov)
+    ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(ov).rectangle((0, H - 1, W, H), fill=_alpha(acc, int(100 * glow_level)))
+    ov = ov.filter(ImageFilter.GaussianBlur(1))
+    img = Image.alpha_composite(img, ov)
 
-    # ── DOWNLOAD AVATAR ──
     if avatar is None and avatar_url:
         try:
             import requests as _req
@@ -524,7 +500,6 @@ def generate_profile(
     if avatar is None:
         avatar = Image.new("RGBA", (128, 128), (80, 80, 100, 255))
 
-    # ── LEFT PANEL ──
     PANEL_W = 270
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     panel_bg = Image.new("RGBA", (PANEL_W, H), (0, 0, 0, 0))
@@ -536,62 +511,34 @@ def generate_profile(
     ov.paste(panel_bg, (0, 0))
     img = Image.alpha_composite(img, ov)
 
-    for x in range(PANEL_W - 1, PANEL_W + 10):
+    for x in range(PANEL_W - 1, PANEL_W + 8):
         dist = x - (PANEL_W - 1)
-        a = max(0, int(120 - dist * 12))
+        a = max(0, int(100 - dist * 14))
         if a < 1:
             break
         ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         ImageDraw.Draw(ov).line((x, 0, x, H), fill=_alpha(brt, a))
         img = Image.alpha_composite(img, ov)
 
-    ov = Image.new("RGBA", (PANEL_W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(ov)
-    for off in range(-H, PANEL_W + H, 60):
-        d.line((off, 0, off + H, H), fill=_alpha(brd, 3), width=1)
-    panel_ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    panel_ov.paste(ov, (0, 0))
-    img = Image.alpha_composite(img, panel_ov)
-    draw = ImageDraw.Draw(img)
-
-    # ── AVATAR ──
     av_sz = 140
     av_x = (PANEL_W - av_sz) // 2
     av_y = 40
     av_cx = av_x + av_sz // 2
     av_cy = av_y + av_sz // 2
 
-    img = _glow_ring(img, av_cx, av_cy, av_sz // 2 + 8, brt, rings=6, spread=3, blur=3)
-
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(ov)
-    for i in range(3):
-        r = av_sz // 2 + 4 + i
-        a = max(0, int(160 - i * 40))
-        d.ellipse((av_cx - r, av_cy - r, av_cx + r, av_cy + r), outline=_alpha(brt, a), width=2)
-    ov = ov.filter(ImageFilter.GaussianBlur(2))
+    border_r = av_sz // 2 + 3
+    d.ellipse(
+        (av_cx - border_r, av_cy - border_r, av_cx + border_r, av_cy + border_r),
+        outline=_alpha(brt, 200), width=3
+    )
     img = Image.alpha_composite(img, ov)
-
-    bw = 4
-    bi = Image.new("RGBA", (av_sz + bw * 2, av_sz + bw * 2), (0, 0, 0, 0))
-    bd = ImageDraw.Draw(bi)
-    for i in range(3):
-        bd.ellipse(
-            (i, i, av_sz + bw * 2 - 1 - i, av_sz + bw * 2 - 1 - i),
-            outline=_alpha(brt, max(0, 255 - i * 40)), width=bw - i
-        )
-    img.paste(bi, (av_x - bw, av_y - bw), bi)
 
     av_r = avatar.resize((av_sz, av_sz), Image.Resampling.LANCZOS)
     img.paste(av_r.convert("RGBA"), (av_x, av_y), _circle_mask((av_sz, av_sz)))
     draw = ImageDraw.Draw(img)
 
-    ov = Image.new("RGBA", (av_sz, av_sz), (0, 0, 0, 0))
-    ImageDraw.Draw(ov).arc((0, 0, av_sz, av_sz), 200, 340, fill=_alpha(brt, 40), width=2)
-    img.paste(ov, (av_x, av_y), ov)
-    draw = ImageDraw.Draw(img)
-
-    # ── FONTS ──
     fn_name = _font_bold("segoeuib.ttf", 24)
     fn_small = _font("segoeui.ttf", 13)
     fn_tiny = _font("segoeui.ttf", 11)
@@ -605,7 +552,6 @@ def generate_profile(
     tw = bb[2] - bb[0]
     nx = (PANEL_W - tw) // 2
     ny = av_y + av_sz + 20
-    draw.text((nx + 1, ny + 1), name, fill=(0, 0, 0, 120), font=fn_name)
     draw.text((nx, ny), name, fill=(255, 255, 255), font=fn_name)
 
     rk = rank_name if len(rank_name) <= 22 else rank_name[:20] + ".."
@@ -621,7 +567,6 @@ def generate_profile(
     bdg = Image.new("RGBA", (badge_w, badge_h), (0, 0, 0, 0))
     bd = ImageDraw.Draw(bdg)
     bd.rounded_rectangle((0, 0, badge_w, badge_h), radius=badge_h // 2, fill=_alpha(acc, 55))
-    bd.rounded_rectangle((0, 0, badge_w, badge_h), radius=badge_h // 2, outline=_alpha(brt, 160), width=1)
     ov.paste(bdg, (bx, by))
     img = Image.alpha_composite(img, ov)
     draw = ImageDraw.Draw(img)
@@ -638,30 +583,16 @@ def generate_profile(
     kx = (PANEL_W - tw) // 2
     ky = by + 55
 
-    for i in range(4):
-        a = max(0, int(40 - i * 10))
-        draw.text((kx + i, ky + i), ktext, fill=(0, 0, 0, a), font=fn_big)
     draw.text((kx, ky), ktext, fill=(255, 215, 0), font=fn_big)
 
     bb = draw.textbbox((0, 0), "Koins", font=fn_tiny)
     tw = bb[2] - bb[0]
     draw.text(((PANEL_W - tw) // 2, ky + 34), "Koins", fill=(180, 160, 120), font=fn_tiny)
 
-    # ── RIGHT PANEL ──
     rx = PANEL_W + 35
     rw = W - PANEL_W - 50
 
-    sy = 28
-    draw.text((rx + 1, sy + 1), "Estatisticas", fill=(0, 0, 0, 80), font=fn_mid)
-    draw.text((rx, sy), "Estatisticas", fill=(220, 210, 250), font=fn_mid)
-    ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(ov)
-    d.line((rx, sy + 28, rx + rw, sy + 28), fill=_alpha(brt, 50), width=1)
-    img = Image.alpha_composite(img, ov)
-    draw = ImageDraw.Draw(img)
-
     stats = [
-        ("Koins", f"{koins:,}".replace(",", "."), (255, 215, 0)),
         ("Wins", str(wins), (74, 222, 128)),
         ("Losses", str(losses), (248, 113, 113)),
         ("Win Rate", f"{round((wins / (wins + losses)) * 100) if (wins + losses) > 0 else 0}%", (139, 92, 246)),
@@ -670,73 +601,48 @@ def generate_profile(
         ("Conquistas", str(achievements_count), (232, 121, 249)),
     ]
 
-    stat_y = sy + 40
+    stat_y = 30
     col_w = rw // 2
 
     for i, (label, value, dot_color) in enumerate(stats):
         col = i % 2
         row = i // 2
         sx = rx + col * col_w
-        sy2 = stat_y + row * 44
-        card_w = col_w - 12
-        card_h = 38
+        sy2 = stat_y + row * 50
 
-        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        cd = Image.new("RGBA", (card_w, card_h), (0, 0, 0, 0))
-        cdd = ImageDraw.Draw(cd)
-        cdd.rounded_rectangle((0, 0, card_w, card_h), radius=8, fill=(255, 255, 255, 8))
-        cdd.rounded_rectangle((0, 0, card_w, card_h), radius=8, outline=(255, 255, 255, 12), width=1)
-        ov.paste(cd, (sx, sy2))
-        img = Image.alpha_composite(img, ov)
-        draw = ImageDraw.Draw(img)
-
-        draw.ellipse((sx + 10, sy2 + 10, sx + 18, sy2 + 18), fill=_alpha(dot_color, 220))
-        draw.text((sx + 24, sy2 + 6), label, fill=(150, 140, 180), font=fn_lbl)
+        draw.ellipse((sx + 2, sy2 + 8, sx + 10, sy2 + 16), fill=_alpha(dot_color, 200))
+        draw.text((sx + 16, sy2 + 4), label, fill=(140, 130, 170), font=fn_lbl)
 
         vt = str(value)
-        max_vw = card_w - 30
+        max_vw = col_w - 30
         vb = draw.textbbox((0, 0), vt, font=fn_val)
         vw = vb[2] - vb[0]
         while vw > max_vw and len(vt) > 4:
             vt = vt[:-4] + "..."
             vb = draw.textbbox((0, 0), vt, font=fn_val)
             vw = vb[2] - vb[0]
-        draw.text((sx + 10, sy2 + 20), vt, fill=(255, 255, 255), font=fn_val)
+        draw.text((sx + 16, sy2 + 22), vt, fill=(255, 255, 255), font=fn_val)
 
-    # ── LEVEL BAR ──
-    bar_y = stat_y + (len(stats) // 2 + 1) * 44 + 8
-    draw.text((rx + 1, bar_y + 1), f"Nivel {level}", fill=(0, 0, 0, 60), font=fn_mid)
+    bar_y = stat_y + (len(stats) // 2 + 1) * 50
     draw.text((rx, bar_y), f"Nivel {level}", fill=(220, 210, 250), font=fn_mid)
-    bar_y += 28
+    bar_y += 26
     progress = xp_current / xp_next if xp_next > 0 else 0
-    bar_h = 18
+    bar_h = 12
 
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     bd = Image.new("RGBA", (rw, bar_h), (0, 0, 0, 0))
     bdd = ImageDraw.Draw(bd)
-    bdd.rounded_rectangle((0, 0, rw, bar_h), radius=bar_h // 2, fill=(20, 15, 40, 220))
-    bdd.rounded_rectangle((0, 0, rw, bar_h), radius=bar_h // 2, outline=_alpha(brd, 40), width=1)
+    bdd.rounded_rectangle((0, 0, rw, bar_h), radius=bar_h // 2, fill=(20, 15, 40, 200))
     ov.paste(bd, (rx, bar_y))
     img = Image.alpha_composite(img, ov)
     draw = ImageDraw.Draw(img)
 
     if progress > 0:
         fw = max(bar_h, int(rw * min(progress, 1.0)))
-        for gi in range(8):
-            ga = max(0, int(60 - gi * 8))
-            if ga < 1:
-                break
-            ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-            gd = Image.new("RGBA", (fw, bar_h + gi * 2), (0, 0, 0, 0))
-            ImageDraw.Draw(gd).rounded_rectangle((0, 0, fw, bar_h + gi * 2), radius=(bar_h + gi * 2) // 2, fill=_alpha(brt, ga))
-            ov.paste(gd, (rx, bar_y - gi))
-            img = Image.alpha_composite(img, ov)
-        draw = ImageDraw.Draw(img)
-
         fill_ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         fill_bar = Image.new("RGBA", (fw, bar_h), (0, 0, 0, 0))
         fd = ImageDraw.Draw(fill_bar)
-        fd.rounded_rectangle((0, 0, fw, bar_h), radius=bar_h // 2, fill=_alpha(brt, 230))
+        fd.rounded_rectangle((0, 0, fw, bar_h), radius=bar_h // 2, fill=_alpha(brt, 220))
         fill_ov.paste(fill_bar, (rx, bar_y))
         img = Image.alpha_composite(img, fill_ov)
         draw = ImageDraw.Draw(img)
@@ -744,9 +650,9 @@ def generate_profile(
     xp_text = f"{xp_current}/{xp_next} XP"
     bb = draw.textbbox((0, 0), xp_text, font=fn_tiny)
     tw = bb[2] - bb[0]
-    draw.text((rx + (rw - tw) // 2, bar_y + 3), xp_text, fill=(255, 255, 255, 200), font=fn_tiny)
+    draw.text((rx + (rw - tw) // 2, bar_y + 1), xp_text, fill=(255, 255, 255, 180), font=fn_tiny)
 
-    ach_y = bar_y + 30
+    ach_y = bar_y + 22
     if achievements_count > 0:
         draw.text((rx, ach_y), "Conquistas", fill=(210, 200, 240), font=fn_lbl)
         for ai in range(min(achievements_count, 18)):
