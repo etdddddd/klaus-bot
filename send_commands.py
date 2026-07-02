@@ -13,19 +13,23 @@ logger = logging.getLogger(__name__)
 CHANNEL_ID = 1521169991788138707
 
 COMMANDS = [
-    "/daily", "/streak", "/trabalhar", "/minerar", "/forjar", "/saldo", "/carteira",
-    "/perfil", "/ranking", "/conquistas", "/pagar", "/loja",
-    "/apostar", "/coinflip", "/aposta_dados", "/blackjack", "/duel", "/lottery", "/case",
-    "/crime", "/roubar", "/heist", "/bounty", "/cofre", "/invest", "/pet",
-    "/hug", "/kiss", "/slap", "/pat", "/ship", "/coin", "/dado", "/dados",
-    "/rps", "/jokenpo", "/batalha", "/adivinha", "/amigo", "/eightball", "/8ball",
-    "/piada", "/meme", "/horoscopo", "/randomnumber", "/flip", "/roll",
-    "/tod", "/magic", "/russian",
-    "/help", "/userinfo", "/serverinfo", "/avatar", "/ping", "/remind", "/afk",
-    "/rank", "/xpleaderboard",
+    "/daily", "/weekly", "/streak", "/recompensa", "/trabalhar", "/minerar", "/forjar",
+    "/loja", "/vender", "/saldo", "/carteira", "/perfil", "/ranking", "/conquistas",
+    "/pagar", "/correio", "/doar", "/sobrevivencia",
+    "/apostar", "/coinflip", "/aposta_dados", "/blackjack", "/slot", "/duel",
+    "/batalhar", "/lottery", "/case",
+    "/crime", "/roubar", "/heist", "/bounty", "/cofre", "/invest",
+    "/challenges", "/caixa_fortuna",
+    "/hug", "/kiss", "/slap", "/pat", "/ship", "/casal", "/coin", "/rps",
+    "/batalha", "/piada", "/meme", "/8ball", "/roll", "/quiz", "/poll",
+    "/reacao", "/adivinha", "/corrida", "/aventura", "/ranking_social",
     "/ban", "/kick", "/mute", "/unmute", "/warn", "/warnings", "/clearwarnings",
-    "/limpar", "/clearchannel", "/slowmode", "/lock", "/unlock", "/nuke", "/role", "/nick",
-    "/ticket", "/giveaway",
+    "/slowmode_all", "/lock", "/unlock", "/clearchannel", "/nuke", "/modlog",
+    "/ping", "/uptime", "/calcular", "/userinfo", "/serverinfo", "/embed",
+    "/dashboard", "/help", "/rank", "/xpleaderboard",
+    "/marry", "/divorce", "/comprar", "/afk", "/afk_off", "/pet_name", "/inventario",
+    "/add_badword", "/ticket_panel", "/close_ticket", "/giveaway", "/reaction_role",
+    "/reminder", "/pet", "/pet_feed", "/pet_play",
 ]
 
 
