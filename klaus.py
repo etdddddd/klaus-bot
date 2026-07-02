@@ -705,6 +705,19 @@ class KlausBot(commands.Bot):
             except Exception as e:
                 logging.debug("Failed to send error response: %s", e)
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.bot:
+            return True
+        try:
+            banned = await db.is_bot_banned(interaction.user.id)
+            if banned:
+                embed = make_embed.error("Banido", "Voce foi banido de usar o Klaus.")
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return False
+        except Exception:
+            pass
+        return True
+
     # =========================
     # TASK LOOP ERROR RECOVERY
     # =========================
