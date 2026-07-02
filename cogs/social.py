@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+import time
 from typing import TYPE_CHECKING
 
 import discord
@@ -141,6 +142,109 @@ class Social(commands.Cog):
         await interaction.response.send_message(
             embed=make_embed.success("Compra Realizada", f"Voce comprou **{data.get('name', key)}** por **{format_koins(price)}** koins!")
         )
+
+    # ── AFK ────────────────────────────────────────────────
+
+    @app_commands.command(name="afk", description="Marque-se como AFK (ausente)")
+    @app_commands.describe(motivo="Motivo da ausencia (opcional)")
+    async def afk(self, interaction: discord.Interaction, motivo: str = "Ausente") -> None:
+        await db.update_user(interaction.user.id, {
+            "afk": True,
+            "afk_reason": motivo,
+            "afk_since": time.time(),
+        })
+
+        embed = make_embed.info(
+            "AFK Ativado",
+            f"**{interaction.user.display_name}** esta agora AFK.\n"
+            f"Motivo: **{motivo}**\n\n"
+            f"Voce sera notificado quando alguem mencionar voce."
+        )
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="afk_off", description="Remova seu status AFK")
+    async def afk_off(self, interaction: discord.Interaction) -> None:
+        user_data = await db.get_user(interaction.user.id)
+        if not user_data.get("afk"):
+            return await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Voce nao esta AFK!"), ephemeral=True
+            )
+
+        since = user_data.get("afk_since", 0)
+        duration = int(time.time() - since) if since else 0
+        minutes, seconds = divmod(duration, 60)
+        hours, minutes = divmod(minutes, 60)
+
+        await db.update_user(interaction.user.id, {
+            "$unset": {"afk": "", "afk_reason": "", "afk_since": ""},
+        })
+
+        time_str = ""
+        if hours > 0:
+            time_str = f"{hours}h {minutes}m"
+        elif minutes > 0:
+            time_str = f"{minutes}m {seconds}s"
+        else:
+            time_str = f"{seconds}s"
+
+        embed = make_embed.success(
+            "AFK Desativado",
+            f"Bem-vindo de volta! Voce esteve AFK por **{time_str}**."
+        )
+        await interaction.response.send_message(embed=embed)
+
+    # ── PET NAME ───────────────────────────────────────────
+
+    @app_commands.command(name="pet_name", description="Renomeie seu pet virtual")
+    @app_commands.describe(novo_nome="Novo nome do pet")
+    async def pet_name(self, interaction: discord.Interaction, novo_nome: str) -> None:
+        if len(novo_nome) > 24:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Nome muito longo! Maximo 24 caracteres."), ephemeral=True
+            )
+
+        user_data = await db.get_user(interaction.user.id)
+        pet = user_data.get("pet")
+        if not pet:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Erro", "Voce nao tem um pet! Use `/pet` para adotar."), ephemeral=True
+            )
+
+        await db.update_user(interaction.user.id, {"pet.name": novo_nome})
+        embed = make_embed.success(
+            "Pet Renomeado",
+            f"Seu pet agora se chama **{novo_nome}**! 🐾"
+        )
+        await interaction.response.send_message(embed=embed)
+
+    # ── INVENTORY ──────────────────────────────────────────
+
+    @app_commands.command(name="inventario", description="Veja seus itens e conquistas")
+    async def inventory(self, interaction: discord.Interaction) -> None:
+        user_data = await db.get_user(interaction.user.id)
+        items = user_data.get("items", [])
+        achievements = user_data.get("achievements", [])
+
+        item_text = ""
+        if items:
+            item_counts = {}
+            for item in items:
+                item_counts[item] = item_counts.get(item, 0) + 1
+            item_text = "\n".join(f"• **{k}** x{v}" for k, v in sorted(item_counts.items()))
+        else:
+            item_text = "Nenhum item."
+
+        ach_text = ""
+        if achievements:
+            ach_text = f"**{len(achievements)}** conquistas desbloqueadas"
+        else:
+            ach_text = "Nenhuma conquista ainda."
+
+        embed = make_embed.info(
+            f"Inventario de {interaction.user.display_name}",
+            f"🎒 **Itens:**\n{item_text}\n\n🏆 **Conquistas:**\n{ach_text}"
+        )
+        await interaction.response.send_message(embed=embed)
 
 
 class MarryView(discord.ui.View):

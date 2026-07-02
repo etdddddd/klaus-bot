@@ -389,6 +389,46 @@ class Eventos(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
+        # ── AFK SYSTEM ────────────────────────────────────
+        user_data = await self.bot.db.get_user(message.author.id)
+        if user_data.get("afk"):
+            await self.bot.db.update_user(message.author.id, {
+                "$unset": {"afk": "", "afk_reason": "", "afk_since": ""},
+            })
+            try:
+                await message.channel.send(
+                    embed=discord.Embed(
+                        description=f"✅ **{message.author.display_name}** nao esta mais AFK.",
+                        color=0x22C55E,
+                    ),
+                    delete_after=5,
+                )
+            except discord.HTTPException:
+                pass
+
+        for mention in message.mentions:
+            if mention.bot or mention.id == message.author.id:
+                continue
+            mention_data = await self.bot.db.get_user(mention.id)
+            if mention_data.get("afk"):
+                reason = mention_data.get("afk_reason", "Ausente")
+                since = mention_data.get("afk_since", 0)
+                duration = int(time.time() - since) if since else 0
+                minutes, seconds = divmod(duration, 60)
+                hours, minutes = divmod(minutes, 60)
+                time_str = f"{hours}h {minutes}m" if hours > 0 else (f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s")
+                try:
+                    await message.channel.send(
+                        embed=discord.Embed(
+                            description=f"💤 **{mention.display_name}** esta AFK desde **{time_str}**.\nMotivo: **{reason}**",
+                            color=0xF59E0B,
+                        ),
+                        delete_after=8,
+                    )
+                except discord.HTTPException:
+                    pass
+        # ── END AFK ────────────────────────────────────────
+
         cfg = await self._get_guild_cfg(message.guild.id)
         if not cfg.get("xp_enabled"):
             return
