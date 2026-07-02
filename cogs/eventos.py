@@ -95,15 +95,21 @@ class Eventos(commands.Cog):
                     msg = msg.replace("{mention}", member.mention)
 
                     risk_text, risk_color = self._get_account_risk(member)
+                    w_color_str = cfg.get("welcome_color")
+                    embed_color = discord.Color(int(w_color_str.lstrip("#"), 16)) if w_color_str else risk_color
 
                     embed = discord.Embed(
                         title=title,
                         description=msg,
-                        color=risk_color,
+                        color=embed_color,
                         timestamp=discord.utils.utcnow(),
                     )
                     embed.set_thumbnail(url=member.display_avatar.url)
-                    embed.set_image(url="https://cdn.discordapp.com/banners/1502096967055184024/a_1b5e3b7c9e4f8d2a6c0b3e5f7d9a1c4e.png?size=600")
+                    w_image = cfg.get("welcome_image", "")
+                    if w_image:
+                        embed.set_image(url=w_image)
+                    else:
+                        embed.set_image(url="https://cdn.discordapp.com/banners/1502096967055184024/a_1b5e3b7c9e4f8d2a6c0b3e5f7d9a1c4e.png?size=600")
                     embed.add_field(
                         name="📅 Membro #",
                         value=str(member.guild.member_count),
@@ -120,7 +126,8 @@ class Eventos(commands.Cog):
                         inline=True,
                     )
                     embed.add_field(name="ID", value=str(member.id), inline=True)
-                    embed.set_footer(text=f"{member.guild.name} • {member.guild.member_count} membros")
+                    w_footer = cfg.get("welcome_footer", "")
+                    embed.set_footer(text=w_footer if w_footer else f"{member.guild.name} • {member.guild.member_count} membros")
                     try:
                         await channel.send(content=member.mention, embed=embed)
                     except discord.HTTPException as e:
@@ -179,7 +186,11 @@ class Eventos(commands.Cog):
                     msg = msg.replace("{server}", member.guild.name)
                     msg = msg.replace("{count}", str(member.guild.member_count))
 
-                    farewell_color = self._get_top_role_color(member)
+                    f_color_str = cfg.get("farewell_color")
+                    if f_color_str:
+                        farewell_color = discord.Color(int(f_color_str.lstrip("#"), 16))
+                    else:
+                        farewell_color = self._get_top_role_color(member)
 
                     embed = discord.Embed(
                         title=title,
@@ -189,6 +200,10 @@ class Eventos(commands.Cog):
                     )
                     if member.display_avatar:
                         embed.set_thumbnail(url=member.display_avatar.url)
+
+                    f_image = cfg.get("farewell_image", "")
+                    if f_image:
+                        embed.set_image(url=f_image)
 
                     if member.joined_at:
                         join_timestamp = f"<t:{int(member.joined_at.timestamp())}:R>"
@@ -225,7 +240,8 @@ class Eventos(commands.Cog):
                     )
 
                     embed.add_field(name="ID", value=str(member.id), inline=True)
-                    embed.set_footer(text=f"{member.guild.name} • {member.guild.member_count - 1} membros restantes")
+                    f_footer = cfg.get("farewell_footer", "")
+                    embed.set_footer(text=f_footer if f_footer else f"{member.guild.name} • {member.guild.member_count - 1} membros restantes")
                     try:
                         await channel.send(embed=embed)
                     except discord.HTTPException as e:
