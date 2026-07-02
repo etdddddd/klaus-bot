@@ -131,6 +131,7 @@ class KlausBot(commands.Bot):
             "cogs.automod",
             "cogs.tickets",
             "cogs.giveaway",
+            "cogs.social",
         ]
         for ext in extensions:
             try:

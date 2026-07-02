@@ -3037,6 +3037,41 @@ class Economia(commands.Cog):
         else:
             raise error
 
+    # ── SLOT ───────────────────────────────────────────────
+
+    @app_commands.command(name="slot", description="Gire a roda caça-niquel e tente ganhar koins!")
+    @app_commands.describe(aposta="Valor da aposta em koins")
+    @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
+    async def slot(self, interaction: discord.Interaction, aposta: int) -> None:
+        if aposta <= 0:
+            return await interaction.response.send_message(embed=make_embed.error("Erro", "Aposta deve ser maior que 0!"), ephemeral=True)
+        if aposta > 100000:
+            return await interaction.response.send_message(embed=make_embed.error("Erro", "Aposta maxima: 100.000 koins!"), ephemeral=True)
+
+        balance = await db.get_balance(interaction.user.id)
+        if balance < aposta:
+            return await interaction.response.send_message(
+                embed=make_embed.error("Saldo Insuficiente", f"Saldo: **{format_koins(balance)}** koins"),
+                ephemeral=True,
+            )
+
+        view = SlotView(interaction.user, aposta)
+        embed = make_embed.info(
+            "🎰 Slot Machine",
+            f"Aposta: **{format_koins(aposta)}** koins\n\nClique para girar!"
+        )
+        await interaction.response.send_message(embed=embed, view=view)
+
+    @slot.error
+    async def slot_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+        if isinstance(error, app_commands.CommandOnCooldown):
+            await interaction.response.send_message(
+                embed=make_embed.error("Cooldown", f"Aguarde **{int(error.retry_after)}s** para girar novamente!"),
+                ephemeral=True,
+            )
+        else:
+            raise error
+
 
 # =========================
 # VIEW: Batalha PvP
@@ -3171,6 +3206,80 @@ class BattleView(discord.ui.View):
                 .build()
             )
             await interaction.response.edit_message(embed=embed)
+
+    async def on_timeout(self) -> None:
+        for child in self.children:
+            child.disabled = True
+
+
+# =========================
+# COMMAND: Slot Machine
+# =========================
+
+SLOT_EMOJIS = ["🍒", "🍋", "🍊", "🍇", "💎", "7️⃣"]
+SLOT_WEIGHTS = [30, 25, 20, 15, 7, 3]
+
+class SlotView(discord.ui.View):
+    def __init__(self, author: discord.Member, bet: int) -> None:
+        super().__init__(timeout=30)
+        self.author = author
+        self.bet = bet
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author.id:
+            await interaction.response.send_message(embed=make_embed.error("Acesso Negado", "Essa aposta nao e sua!"), ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Girar! 🎰", style=discord.ButtonStyle.primary)
+    async def spin(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        balance = await db.get_balance(self.author.id)
+        if balance < self.bet:
+            return await interaction.response.edit_message(
+                embed=make_embed.error("Saldo Insuficiente", f"Saldo: **{format_koins(balance)}** koins"),
+                view=None,
+            )
+
+        await db.add_koins(self.author.id, -self.bet)
+
+        results = random.choices(SLOT_EMOJIS, weights=SLOT_WEIGHTS, k=3)
+        slots_display = f"[ {results[0]} | {results[1]} | {results[2]} ]"
+
+        if results[0] == results[1] == results[2]:
+            if results[0] == "7️⃣":
+                multiplier = 20
+                result_text = "JACKPOT! 🎉"
+            elif results[0] == "💎":
+                multiplier = 10
+                result_text = "DIAMANTES! 💎"
+            else:
+                multiplier = 5
+                result_text = "TRINCA! 🔥"
+            winnings = self.bet * multiplier
+        elif results[0] == results[1] or results[1] == results[2] or results[0] == results[2]:
+            multiplier = 2
+            result_text = "PAR! ✨"
+            winnings = self.bet * multiplier
+        else:
+            multiplier = 0
+            result_text = "Nada... 😢"
+            winnings = 0
+
+        if winnings > 0:
+            await db.add_koins(self.author.id, winnings)
+            if winnings >= 10000:
+                await db.add_achievement(self.author.id, "big_win")
+
+        bal = await db.get_balance(self.author.id)
+
+        embed = make_embed.info(
+            "🎰 Slot Machine",
+            f"```\n{slots_display}\n```\n"
+            f"{result_text}\n"
+            + (f"Ganhou: **{format_koins(winnings)}** koins\n" if winnings > 0 else f"Perdeu: **{format_koins(self.bet)}** koins\n")
+            + f"Saldo: **{format_koins(bal)}** koins"
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
 
     async def on_timeout(self) -> None:
         for child in self.children:
