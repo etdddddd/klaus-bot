@@ -1,0 +1,73 @@
+[project]
+name = "klaus-bot"
+version = "3.0.0"
+description = "Klaus - Bot multifuncional para Discord com economia, diversao, moderacao e mais"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Klaus Dev", email = "klaus@klaus-bot.com"},
+]
+keywords = ["discord", "bot", "economy", "fun", "moderation", "slash-commands"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Chat",
+]
+dependencies = [
+    "discord.py>=2.3.0",
+    "motor>=3.3.0",
+    "pymongo>=4.6.0",
+    "python-dotenv>=1.0.0",
+    "certifi>=2023.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "Pillow>=10.0.0",
+    "colorama>=0.4.6",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.11.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "types-python-dateutil>=2.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ew2k26/klaus-bot"
+Repository = "https://github.com/ew2k26/klaus-bot"
+Dashboard = "https://klaus-dashboard-delta.vercel.app"
+Issues = "https://github.com/ew2k26/klaus-bot/issues"
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "W", "UP", "B", "C4", "PTH", "PERF", "T20"]
+ignore = ["E501", "B008", "C901"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_equality = true
+no_implicit_optional = true
